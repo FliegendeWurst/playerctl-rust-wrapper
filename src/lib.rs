@@ -33,6 +33,7 @@ pub enum TrackStatus {
 }
 
 /// Track metadata struct.
+#[derive(Default)]
 pub struct TrackMetadata {
     /// Track's title.
     pub title: String,
