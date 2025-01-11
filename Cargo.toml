@@ -1,7 +1,15 @@
 [package]
 name = "playerctl-rust-wrapper"
 version = "0.1.0"
+authors = ["Henrique BACELAR <dev@bacelar.fr>"]
 edition = "2021"
+description = "A Rust implementation of a playerctl wrapper"
+license = "MIT"
+repository = "https://github.com/hbacelar8/playerctl-rust-wrapper"
+documentation = "https://docs.rs/playerctl-rust-wrapper"
+readme = "README.md"
+keywords = ["playerctl"]
+exclude = ["target/", ".git/", ".github/", "*.lock"]
 
 [dependencies]
 thiserror = "2.0.11"
