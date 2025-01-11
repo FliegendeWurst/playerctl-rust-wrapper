@@ -1,4 +1,4 @@
-name: Rust
+name: Rust CI
 
 on:
   push:
@@ -16,7 +16,12 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+
+    - name: Install playerctl
+      run: sudo apt-get update && sudo apt-get install -y playerctl
+
     - name: Build
       run: cargo build --verbose
+
     - name: Run example
       run: cargo run --example basic
