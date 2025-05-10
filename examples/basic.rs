@@ -16,8 +16,5 @@ fn main() {
     // Get metadata information for the current track
     let metadata = Playerctl::metadata().unwrap_or_default();
 
-    println!(
-        "Title: {}\nAlbum: {}\nArtist: {}\nURL: {}\nLength: {}",
-        metadata.title, metadata.album, metadata.artist, metadata.url, metadata.length
-    )
+    println!("{metadata:#?}");
 }

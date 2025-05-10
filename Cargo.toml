@@ -13,3 +13,4 @@ exclude = ["target/", ".git/", ".github/", "*.lock"]
 
 [dependencies]
 thiserror = "2.0.11"
+urlencoding = "2.1.3"

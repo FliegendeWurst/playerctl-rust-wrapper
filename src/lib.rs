@@ -6,7 +6,7 @@
 //! See the [playerctl](https://github.com/altdesktop/playerctl) project for
 //! more information.
 
-use std::process::Command;
+use std::{collections::HashMap, num::ParseIntError, process::Command, string::FromUtf8Error};
 use thiserror::Error;
 
 /// Playerctl errors.
@@ -16,6 +16,10 @@ pub enum PlayerctlError {
     IoError(#[from] std::io::Error),
     #[error("Command error: {0}")]
     CommandError(String),
+    #[error("Failed to parse track length: {0}")]
+    ParseLengthError(#[from] ParseIntError),
+    #[error("Failed to parse metadata URL: {0}")]
+    ParseUrlError(#[from] FromUtf8Error),
     #[error("Other error: {0}")]
     Other(String),
 }
@@ -32,19 +36,28 @@ pub enum TrackStatus {
     Stopped,
 }
 
-/// Track metadata struct.
-#[derive(Default)]
-pub struct TrackMetadata {
-    /// Track's title.
-    pub title: String,
-    /// Track's album.
-    pub album: String,
-    /// Track's artist.
-    pub artist: String,
-    /// Track's source URL.
-    pub url: String,
-    /// Track's length.
-    pub length: String,
+/// Player metadata struct.
+/// 
+/// There are many more xesam properties.
+/// 
+/// Reference: [MPRIS v2 metadata guidelines](https://freedesktop.org/wiki/Specifications/mpris-spec/metadata/)
+#[derive(Default, Debug)]
+pub struct PlayerMetadata {
+    /// Example values: `'/org/mpris/MediaPlayer2/firefox'` (Firefox playing a Youtube video), `'/63'` (mpv, playlist item 63)
+    pub mpris_trackid: Option<String>,
+    /// Album/thumbnail art.
+    pub mpris_art_url: Option<String>,
+    /// Length in microseconds.
+    pub mpris_length: Option<u64>,
+    pub xesam_title: Option<String>,
+    pub xesam_album: Option<String>,
+    pub xesam_artist: Option<String>,
+    pub xesam_album_artist: Option<String>,
+    pub xesam_url: Option<String>,
+    /// Example value: 2018-06-28T00:00:00
+    pub xesam_content_created: Option<String>,
+    /// Raw metadata values.
+    pub raw: HashMap<String, String>
 }
 
 /// # Playerctl
@@ -175,34 +188,48 @@ impl Playerctl {
     pub fn status() -> Result<TrackStatus> {
         let status = run_command("status")?;
 
-        match status.unwrap().as_str().trim() {
+        match status.as_str().trim() {
             "Playing" => Ok(TrackStatus::Playing),
             "Paused" => Ok(TrackStatus::Paused),
             _ => Ok(TrackStatus::Stopped),
         }
     }
 
-    /// Get metadata information for the current track.
+    /// Get metadata information for all active players.
     ///
     /// ```
     /// let metadata = Playerctl::metadata().unwrap();
     ///
-    /// println!("Title: {}", metadata.title);
+    /// println!("Title: {}", metadata.values().first().unwrap().xesam_title.unwrap());
     /// ```
-    pub fn metadata() -> Result<TrackMetadata> {
-        let title = run_command("metadata title")?;
-        let album = run_command("metadata album")?;
-        let artist = run_command("metadata artist")?;
-        let url = run_command("metadata xesam:url")?;
-        let length = run_command("metadata mpris:length")?;
+    pub fn metadata() -> Result<HashMap<String, PlayerMetadata>> {
+        let mut data: HashMap<_, PlayerMetadata> = HashMap::new();
 
-        Ok(TrackMetadata {
-            title: title.unwrap_or_default(),
-            album: album.unwrap_or_default(),
-            artist: artist.unwrap_or_default(),
-            url: url.unwrap_or_default(),
-            length: length.unwrap_or_default(),
-        })
+        let all = run_command("metadata -a")?;
+        for line in all.lines() {
+            let parts: Vec<_> = line.split_ascii_whitespace().collect();
+            if parts.len() != 3 {
+                continue;
+            }
+            let player = parts[0].to_owned();
+            let key = parts[1].to_owned();
+            let val = parts[2].to_owned();
+            let map = data.entry(player).or_default();
+            match &*key {
+                "mpris:artUrl" => map.mpris_art_url = Some(urlencoding::decode(&val)?.into_owned()),
+                "mpris:length" => map.mpris_length = Some(val.clone().parse()?),
+                "mpris:trackid" => map.mpris_trackid = Some(val.clone()),
+                "xesam:album" => map.xesam_album = Some(val.clone()),
+                "xesam:albumArtist" => map.xesam_album_artist = Some(val.clone()),
+                "xesam:artist" => map.xesam_artist = Some(val.clone()),
+                "xesam:contentCreated" => map.xesam_content_created = Some(val.clone()),
+                "xesam:title" => map.xesam_title = Some(val.clone()),
+                "xesam:url" => map.xesam_url = Some(urlencoding::decode(&val)?.into_owned()),
+                _ => {}
+            }
+            map.raw.insert(key, val);
+        }
+        Ok(data)
     }
 }
 
@@ -211,15 +238,13 @@ impl Playerctl {
 /// ```
 /// Playerctl::play().expect("Failed to run command");
 /// ```
-fn run_command(command: &str) -> Result<Option<String>> {
-    let args: Vec<&str> = command.split_whitespace().collect();
+fn run_command(command: &str) -> Result<String> {
+    let args = command.split_whitespace();
 
     let output = Command::new("playerctl").args(args).output()?;
 
     if output.status.success() {
-        Ok(Some(
-            String::from_utf8_lossy(&output.stdout).trim().to_string(),
-        ))
+        Ok(String::from_utf8_lossy(&output.stdout).trim().to_owned())
     } else {
         Err(PlayerctlError::CommandError(format!(
             "Command failed with status {}: {}",
