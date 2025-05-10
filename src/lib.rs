@@ -165,6 +165,19 @@ impl Playerctl {
         Ok(())
     }
 
+    /// Get current player positions, in microseconds.
+    pub fn get_position() -> Result<HashMap<String, u64>> {
+        let output = run_command("status -a -f {{playerName}};-;{{position}}")?;
+        let mut m = HashMap::new();
+        for line in output.lines() {
+            let Some((name, pos)) = line.split_once(";-;") else {
+                continue;
+            };
+            m.insert(name.to_owned(), pos.parse()?);
+        }
+        Ok(m)
+    }
+
     /// Set the volume to LEVEL from 0.0 to 1.0.
     ///
     /// ```
