@@ -210,11 +210,11 @@ impl Playerctl {
             let Some((player,b)) = line.split_once(' ') else {
                 continue;
             };
-            let b = b.strip_prefix(' ').unwrap_or(b);
+            let b = b.trim_ascii_start();
             let Some((key,val)) = b.split_once(' ') else {
                 continue;
             };
-            let val = val.strip_prefix(' ').unwrap_or(val);
+            let val = val.trim_ascii_start();
             let map = data.entry(player.to_owned()).or_default();
             match key {
                 "mpris:artUrl" => map.mpris_art_url = Some(urlencoding::decode(&val)?.into_owned()),
