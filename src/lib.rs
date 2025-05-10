@@ -207,27 +207,28 @@ impl Playerctl {
 
         let all = run_command("metadata -a")?;
         for line in all.lines() {
-            let parts: Vec<_> = line.split_ascii_whitespace().collect();
-            if parts.len() != 3 {
+            let Some((player,b)) = line.split_once(' ') else {
                 continue;
-            }
-            let player = parts[0].to_owned();
-            let key = parts[1].to_owned();
-            let val = parts[2].to_owned();
-            let map = data.entry(player).or_default();
-            match &*key {
+            };
+            let b = b.strip_prefix(' ').unwrap_or(b);
+            let Some((key,val)) = b.split_once(' ') else {
+                continue;
+            };
+            let val = val.strip_prefix(' ').unwrap_or(val);
+            let map = data.entry(player.to_owned()).or_default();
+            match key {
                 "mpris:artUrl" => map.mpris_art_url = Some(urlencoding::decode(&val)?.into_owned()),
-                "mpris:length" => map.mpris_length = Some(val.clone().parse()?),
-                "mpris:trackid" => map.mpris_trackid = Some(val.clone()),
-                "xesam:album" => map.xesam_album = Some(val.clone()),
-                "xesam:albumArtist" => map.xesam_album_artist = Some(val.clone()),
-                "xesam:artist" => map.xesam_artist = Some(val.clone()),
-                "xesam:contentCreated" => map.xesam_content_created = Some(val.clone()),
-                "xesam:title" => map.xesam_title = Some(val.clone()),
+                "mpris:length" => map.mpris_length = Some(val.parse()?),
+                "mpris:trackid" => map.mpris_trackid = Some(val.to_owned()),
+                "xesam:album" => map.xesam_album = Some(val.to_owned()),
+                "xesam:albumArtist" => map.xesam_album_artist = Some(val.to_owned()),
+                "xesam:artist" => map.xesam_artist = Some(val.to_owned()),
+                "xesam:contentCreated" => map.xesam_content_created = Some(val.to_owned()),
+                "xesam:title" => map.xesam_title = Some(val.to_owned()),
                 "xesam:url" => map.xesam_url = Some(urlencoding::decode(&val)?.into_owned()),
                 _ => {}
             }
-            map.raw.insert(key, val);
+            map.raw.insert(key.to_owned(), val.to_owned());
         }
         Ok(data)
     }
