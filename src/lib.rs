@@ -41,7 +41,7 @@ pub enum TrackStatus {
 /// There are many more xesam properties.
 /// 
 /// Reference: [MPRIS v2 metadata guidelines](https://freedesktop.org/wiki/Specifications/mpris-spec/metadata/)
-#[derive(Default, Debug)]
+#[derive(Default, Debug, PartialEq, Eq)]
 pub struct PlayerMetadata {
     /// Example values: `'/org/mpris/MediaPlayer2/firefox'` (Firefox playing a Youtube video), `'/63'` (mpv, playlist item 63)
     pub mpris_trackid: Option<String>,
